@@ -86,6 +86,11 @@ tools/gen_spa.py      web/* → src/spa.inc + overlay/www/login.asp
 tools/compile.sh      (läuft im Container) unpack+merge+compile+mkfs
 tools/pack_ima.py     patchets FMH-Size/CRC, uImage-Hdr, Gesamt-Checksum
 tools/flash_image.py  Netz-Flash über Stock-Mechanismus (PRESERVECFG=1)
+tools/verify_upload.py  Upload + verifyimage-Check OHNE Flash
+tools/cramfs_extract.py  Host-seitiger cramfs-Reader (ohne Docker)
+tools/ivtp_ws_test.py   Live-Test: WS-Handshake + IVTP-Auth + Frames
+tools/ivtp_client.py    IVTP-Test-Client (Protokoll-Referenz)
+tools/rmcp_proto.py     RMCP+/IPMI-Test-Client (RAKP, Sensoren, Power)
 overlay/root/         Dateien, die ins Stock-Rootfs rein: inittab (bmcweb+
                       kvmproxy respawn, webgo8080-Wrapper), init.d-Skripte
 overlay/www/login.asp eingebettete SPA (ersetzt Stock-Login auf :8080)
