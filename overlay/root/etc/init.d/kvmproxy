@@ -1,0 +1,22 @@
+#!/bin/sh
+# /etc/init.d/kvmproxy: WebSocket->IVTP bridge supervisor
+# The card has ~30MB RAM and no swap; a respawn loop is used instead of
+# inittab respawn because init throttles fast-exiting children.
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+KVM=/usr/local/bin/kvmproxy
+
+case "$1" in
+  start)
+    ( while :; do $KVM; sleep 2; done ) &
+    ;;
+  stop)
+    killall kvmproxy 2>/dev/null
+    ;;
+  restart)
+    $0 stop; $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+exit 0

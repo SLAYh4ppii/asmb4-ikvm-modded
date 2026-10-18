@@ -1,0 +1,16 @@
+#!/bin/sh
+# /etc/init.d/bmcweb: new management stack on :80
+# supervise=run from inittab (exec'd by init, loops forever)
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+B=/usr/local/bin/bmcweb
+case "$1" in
+  supervise)
+    while :; do $B >>/var/bmcweb.log 2>&1; sleep 2; done
+    ;;
+  start)
+    ( while :; do $B; sleep 2; done ) &
+    ;;
+  stop) killall bmcweb 2>/dev/null ;;
+  *) echo "Usage: $0 {start|stop|supervise}"; exit 1 ;;
+esac
+exit 0

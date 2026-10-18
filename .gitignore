@@ -1,0 +1,7 @@
+work/
+stock/
+*.ima
+*.cramfs
+src/spa.inc
+overlay/www/login.asp
+__pycache__/

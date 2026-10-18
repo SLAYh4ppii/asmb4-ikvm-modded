@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASMB4 iKVM</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#12181f; --panel2:#182029; --border:#26313c;
+  --fg:#d7e0e8; --dim:#7d8b99; --accent:#4ea3ff; --ok:#3fbf6a; --warn:#e0a83c;
+  --err:#e5534b; --off:#5a6672;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;display:flex}
+button{font:inherit;cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--fg);padding:7px 14px;border-radius:6px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#08131f;font-weight:600}
+button.danger{background:#3a1d1d;border-color:#6e2f2f;color:#ff9d99}
+button:disabled{opacity:.45;cursor:default}
+button.sm{padding:4px 10px;font-size:12px}
+input,select{font:inherit;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#0d141b;color:var(--fg)}
+
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:50}
+#login .box{width:340px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:30px 32px}
+#login h1{font-size:19px;color:var(--accent);margin-bottom:4px}
+#login .sub{color:var(--dim);font-size:12px;margin-bottom:20px}
+#login input{width:100%;margin-bottom:12px}
+#login button{width:100%}
+#login .err{color:var(--err);font-size:12px;min-height:18px;margin-bottom:8px}
+
+#app{display:none;width:100%;height:100%}
+nav{width:212px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+nav .brand{padding:16px 18px;border-bottom:1px solid var(--border)}
+nav .brand b{color:var(--accent);font-size:15px}
+nav .brand div{font-size:11px;color:var(--dim);margin-top:2px}
+nav a{padding:11px 18px;color:var(--dim);cursor:pointer;border-left:3px solid transparent;font-size:13.5px}
+nav a:hover{color:var(--fg);background:var(--panel2)}
+nav a.on{color:var(--fg);border-left-color:var(--accent);background:var(--panel2)}
+nav .sp{flex:1}
+main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+header{height:52px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 20px;flex-shrink:0}
+header .ttl{font-weight:600}
+header .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+#views{flex:1;overflow:auto;padding:20px}
+.view{display:none}
+.view.on{display:block}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.card .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.card .v{font-size:19px;font-weight:600}
+.v.ok{color:var(--ok)} .v.off{color:var(--off)} .v.warn{color:var(--warn)}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.panel h2 .act{margin-left:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px;border-bottom:1px solid var(--border)}
+td{padding:6px 10px;border-bottom:1px solid #1b242d}
+tr:hover td{background:#151d26}
+.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+.badge.ok{background:#15351f;color:#5bd88a}
+.badge.warn{background:#3d3016;color:#eec25e}
+.badge.err{background:#3d1d1d;color:#ff8480}
+.pwrrow{display:flex;gap:10px;flex-wrap:wrap}
+#screen{background:#000;border:1px solid var(--border);border-radius:6px;image-rendering:pixelated;max-width:100%;cursor:crosshair;outline:none}
+.kvmbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.kvmbar .grp{display:flex;gap:4px;align-items:center;padding:0 8px;border-left:1px solid var(--border)}
+#kvmstat{color:var(--dim);font-family:monospace;font-size:12px}
+.leds{font-size:12px;color:var(--dim);margin-left:auto}
+.leds b{color:var(--ok)}
+.mono{font-family:monospace;font-size:12px}
+.err{color:var(--err)}
+.dim{color:var(--dim)}
+.note{font-size:12px;color:var(--dim);margin-top:10px}
+kbd{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:monospace;font-size:12px}
+#typebox{width:320px}
+#kvmwrap{position:relative;display:inline-block}
+#osk{display:none;position:absolute;left:0;right:0;bottom:8px;margin:0 auto;width:max-content;max-width:100%;
+  background:#0d141bee;border:1px solid var(--border);border-radius:10px;padding:10px 12px;user-select:none;z-index:20}
+#osk.on{display:block}
+#osk .row{display:flex;gap:4px;margin-bottom:4px}
+#osk .row:last-child{margin-bottom:0}
+#osk .k{min-width:34px;height:34px;padding:0 7px;display:flex;align-items:center;justify-content:center;
+  background:var(--panel2);border:1px solid var(--border);border-radius:5px;font-size:12px;cursor:pointer;color:var(--fg)}
+#osk .k:hover{border-color:var(--accent)}
+#osk .k.wide{min-width:52px} #osk .k.xwide{min-width:76px} #osk .k.space{min-width:210px}
+#osk .k.mod.on{background:var(--accent);color:#08131f;border-color:var(--accent);font-weight:600}
+#osk .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--dim);font-size:11px}
+#osk .hd a{cursor:pointer;color:var(--dim)} #osk .hd a:hover{color:var(--fg)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="box" id="lform">
+    <h1>ASMB4 iKVM</h1>
+    <div class="sub">KCMA-D8 remote management · AST2050</div>
+    <input id="u" placeholder="Username" value="admin" autocomplete="username">
+    <input id="p" placeholder="Password" type="password" value="password" autocomplete="current-password">
+    <div class="err" id="lerr"></div>
+    <button class="primary" type="submit">Sign in</button>
+  </form>
+</div>
+
+<div id="app">
+<nav>
+  <div class="brand"><b>ASMB4 iKVM</b><div id="nav-sub">AST2050</div></div>
+  <a data-v="dash" class="on">Dashboard</a>
+  <a data-v="kvm">Remote Console</a>
+  <a data-v="sensors">Sensors</a>
+  <a data-v="sel">Event Log</a>
+  <a data-v="fru">Inventory / FRU</a>
+  <a data-v="users">Users</a>
+  <a data-v="net">Network</a>
+  <a data-v="time">Date &amp; NTP</a>
+  <a data-v="alerts">Alerts &amp; SMTP</a>
+  <a data-v="pef">Event Filters</a>
+  <a data-v="snmp">SNMP</a>
+  <a data-v="dir">Directory</a>
+  <a data-v="serial">Serial / SOL</a>
+  <a data-v="sess">Sessions &amp; Mouse</a>
+  <a data-v="sys">System</a>
+  <a data-v="maint">Maintenance</a>
+  <a data-v="fw">Firmware</a>
+  <a data-v="rpc">RPC Console</a>
+  <div class="sp"></div>
+  <a id="logout">Sign out</a>
+</nav>
+<main>
+  <header>
+    <span class="ttl" id="hd-board">ASMB4-iKVM</span>
+    <span class="right">
+      <span id="hd-pwr" class="badge">—</span>
+      <span class="dim" id="hd-user">admin</span>
+    </span>
+  </header>
+  <div id="views">
+
+    <section class="view on" id="v-dash">
+      <div class="cards">
+        <div class="card"><div class="k">Host power</div><div class="v" id="c-pwr">—</div></div>
+        <div class="card"><div class="k">Firmware</div><div class="v" id="c-fw">—</div></div>
+        <div class="card"><div class="k">Build</div><div class="v mono" id="c-build" style="font-size:13px">—</div></div>
+        <div class="card"><div class="k">Board</div><div class="v" id="c-board" style="font-size:15px">—</div></div>
+      </div>
+      <div class="panel">
+        <h2>Power control</h2>
+        <div class="pwrrow">
+          <button class="primary" data-pwr="1">Power On</button>
+          <button data-pwr="0">Power Off (force)</button>
+          <button data-pwr="5">Graceful Shutdown</button>
+          <button data-pwr="3">Reset</button>
+          <button class="danger" data-pwr="2">Power Cycle</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Chassis identify <span class="act dim">blink the front LED</span></h2>
+        <div class="pwrrow">
+          <button class="sm" data-idl="15">Blink 15 s</button>
+          <button class="sm" data-idl="255">Blink ∞</button>
+          <button class="sm" data-idl="0">Off</button>
+          <span class="dim" id="idl-st"></span>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Top sensors <span class="act dim" id="sens-refresh" style="cursor:pointer">refresh</span></h2>
+        <div id="top-sensors">—</div>
+      </div>
+    </section>
+
+    <section class="view" id="v-kvm">
+      <div class="kvmbar">
+        <button class="primary" id="kvm-go">Connect</button>
+        <button id="kvm-stop" disabled>Disconnect</button>
+        <button id="kvm-refresh">Refresh</button>
+        <button id="kvm-shot">Screenshot</button>
+        <span class="grp">Keys:
+          <button class="sm" data-mac="cad">Ctrl+Alt+Del</button>
+          <button class="sm" data-mac="del">Del</button>
+          <button class="sm" data-mac="f2">F2</button>
+          <button class="sm" data-mac="f11">F11</button>
+          <button class="sm" data-mac="f12">F12</button>
+        </span>
+        <span class="leds" id="leds">NUM ◇ CAPS ◇ SCRL ◇</span>
+      </div>
+      <div class="kvmbar">
+        <button class="sm" id="oskbtn">⌨ Keyboard</button>
+        <span id="kvmstat">idle</span>
+        <span class="dim" style="font-size:12px">— while connected, every key goes straight to the host</span>
+      </div>
+      <div id="kvmwrap">
+      <canvas id="screen" width="720" height="400" tabindex="0"></canvas>
+      <div id="osk"><div class="hd"><span>ON-SCREEN KEYBOARD · modifiers latch</span><a id="oskx">[close]</a></div><div id="oskrows"></div></div>
+      </div>
+      <p class="note">Click the screen to capture keyboard+mouse. For BIOS setup press <kbd>Del</kbd> or <kbd>F2</kbd> at POST — the AST2050 carries the whole boot process.</p>
+    </section>
+
+    <section class="view" id="v-sensors">
+      <div class="panel"><h2>All sensors <span class="act dim" id="sens-refresh2" style="cursor:pointer">refresh</span></h2><div id="sensor-table">—</div></div>
+    </section>
+
+    <section class="view" id="v-sel">
+      <div class="panel"><h2>System event log <span class="act"><button class="sm" id="sel-refresh">Refresh</button> <button class="sm danger" id="sel-clear">Clear log</button></span></h2><div id="sel-table">—</div></div>
+    </section>
+
+    <section class="view" id="v-fru">
+      <div class="panel"><h2>Field replaceable units <span class="act"><button class="sm" id="fru-refresh">Refresh</button></span></h2><div id="fru-table">—</div></div>
+      <div class="panel"><h2>BMC details</h2><div id="fru-bmc">—</div></div>
+    </section>
+
+    <section class="view" id="v-users">
+      <div class="panel"><h2>IPMI users <span class="act"><button class="sm" id="users-refresh">Refresh</button></span></h2><div id="users-table">—</div></div>
+      <div class="panel"><h2>Add / edit user</h2>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="uf-idx" placeholder="slot (1-8)" style="width:90px">
+          <input id="uf-name" placeholder="username" style="width:160px">
+          <input id="uf-pass" placeholder="password" type="password" style="width:160px">
+          <select id="uf-priv"><option value="4">Administrator</option><option value="3">Operator</option><option value="2">User</option><option value="1">Callback</option><option value="15">No access</option></select>
+        </div>
+        <div class="pwrrow">
+          <button class="primary sm" id="uf-save">Save user</button>
+          <button class="danger sm" id="uf-del">Delete slot</button>
+          <span class="dim" id="uf-st"></span>
+        </div>
+        <p class="note">Saving an existing slot with an empty password keeps the old password.</p>
+      </div>
+    </section>
+
+    <section class="view" id="v-net">
+      <div class="panel"><h2>LAN configuration <span class="act"><button class="sm" id="net-refresh">Refresh</button></span></h2><div id="net-table">—</div></div>
+      <div class="panel"><h2>Edit LAN</h2>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <select id="nf-src"><option value="1">Static</option><option value="2">DHCP</option></select>
+          <input id="nf-ip" placeholder="IP address">
+          <input id="nf-mask" placeholder="Subnet mask">
+          <input id="nf-gw" placeholder="Gateway">
+        </div>
+        <button class="primary sm" id="nf-save">Apply</button>
+        <span class="dim" id="nf-st"></span>
+        <p class="note">Wrong values can cut off access to the card — it may need a factory reset.</p>
+      </div>
+      <div class="panel"><h2>NCSI interface <span class="act"><button class="sm" id="ncsi-refresh">Query</button></span></h2><div id="ncsi-table"><p class="dim">Not queried.</p></div></div>
+    </section>
+
+    <section class="view" id="v-time">
+      <div class="panel"><h2>Card clock <span class="act"><button class="sm" id="time-refresh">Refresh</button></span></h2><div id="time-table">—</div></div>
+      <div class="panel"><h2>Set date / time</h2>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="tf-year" placeholder="YYYY" style="width:80px"><input id="tf-month" placeholder="MM" style="width:60px"><input id="tf-day" placeholder="DD" style="width:60px">
+          <input id="tf-hour" placeholder="hh" style="width:60px"><input id="tf-min" placeholder="mm" style="width:60px"><input id="tf-sec" placeholder="ss" style="width:60px">
+        </div>
+        <button class="primary sm" id="tf-save">Set clock</button>
+        <button class="sm" id="tf-now">Use my PC time</button>
+        <span class="dim" id="tf-st"></span>
+      </div>
+      <div class="panel"><h2>NTP <span class="act"><button class="sm" id="ntp-refresh">Refresh</button></span></h2>
+        <div id="ntp-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <input id="ntp-srv" placeholder="ntp server (host or IP)" style="width:240px">
+          <button class="primary sm" id="ntp-save">Save</button>
+          <span class="dim" id="ntp-st"></span>
+        </div>
+      </div>
+      <div class="panel"><h2>Timezone</h2>
+        <div class="pwrrow"><input id="tz-val" placeholder="e.g. GMT-8 / CET-1" style="width:160px">
+        <button class="primary sm" id="tz-save">Set timezone</button><span class="dim" id="tz-st"></span></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-alerts">
+      <div class="panel"><h2>LAN alert destinations <span class="act"><button class="sm" id="al-refresh">Refresh</button></span></h2><div id="al-table">—</div></div>
+      <div class="panel"><h2>Add / edit alert destination</h2>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="af-idx" placeholder="index" style="width:70px">
+          <select id="af-type"><option value="0">PET trap</option><option value="1">Email</option></select>
+          <select id="af-sev"><option value="0">All</option><option value="1">Critical</option><option value="2">Warning+Crit</option></select>
+          <input id="af-ip" placeholder="destination IP" style="width:150px">
+          <input id="af-mail" placeholder="email" style="width:180px">
+          <input id="af-subj" placeholder="subject" style="width:140px">
+        </div>
+        <button class="primary sm" id="af-save">Save entry</button>
+        <button class="sm" id="af-test">Send test alert</button>
+        <span class="dim" id="af-st"></span>
+      </div>
+      <div class="panel"><h2>SMTP server <span class="act"><button class="sm" id="smtp-refresh">Refresh</button></span></h2>
+        <div id="smtp-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <input id="smtp-ip" placeholder="SMTP server IP" style="width:220px">
+          <button class="primary sm" id="smtp-save">Save</button>
+          <span class="dim" id="smtp-st"></span>
+        </div>
+      </div>
+      <div class="panel"><h2>Alert severity levels <span class="act"><button class="sm" id="alv-refresh">Refresh</button></span></h2><div id="alv-table">—</div></div>
+    </section>
+
+    <section class="view" id="v-pef">
+      <div class="panel"><h2>Platform event filters <span class="act"><button class="sm" id="pef-refresh">Refresh</button></span></h2><div id="pef-table">—</div></div>
+      <div class="panel"><h2>Set filter entry</h2>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="pf-idx" placeholder="entry idx" style="width:80px">
+          <select id="pf-en"><option value="1">Enable</option><option value="0">Disable</option></select>
+          <input id="pf-action" placeholder="action mask" style="width:110px">
+          <input id="pf-pol" placeholder="policy #" style="width:80px">
+          <input id="pf-sev" placeholder="severity" style="width:90px">
+        </div>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="pf-stype" placeholder="sensor type" style="width:110px">
+          <input id="pf-snum" placeholder="sensor #" style="width:90px">
+          <input id="pf-trig" placeholder="trigger" style="width:80px">
+        </div>
+        <button class="primary sm" id="pf-save">Apply</button><span class="dim" id="pf-st"></span>
+        <p class="note">Raw PEF programming — same payload the stock UI sends to SetEvtFilterAction.</p>
+      </div>
+    </section>
+
+    <section class="view" id="v-snmp">
+      <div class="panel"><h2>SNMP settings <span class="act"><button class="sm" id="snmp-refresh">Refresh</button></span></h2><div id="snmp-table">—</div></div>
+      <div class="panel"><h2>Communities <span class="act"><button class="sm" id="snmpc-refresh">Refresh</button></span></h2><div id="snmpc-table">—</div></div>
+      <div class="panel"><h2>SNMPv3 users <span class="act"><button class="sm" id="snmpu-refresh">Refresh</button></span></h2><div id="snmpu-table">—</div></div>
+    </section>
+
+    <section class="view" id="v-dir">
+      <div class="panel"><h2>Active Directory <span class="act"><button class="sm" id="ad-refresh">Refresh</button></span></h2><div id="ad-table">—</div></div>
+      <div class="panel"><h2>AD role groups <span class="act"><button class="sm" id="rg-refresh">Refresh</button></span></h2><div id="rg-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <input id="rg-id" placeholder="id" style="width:60px"><input id="rg-name" placeholder="group name" style="width:160px">
+          <input id="rg-dom" placeholder="domain" style="width:150px">
+          <select id="rg-priv"><option value="4">Admin</option><option value="3">Operator</option><option value="2">User</option><option value="1">Callback</option></select>
+          <button class="primary sm" id="rg-add">Add</button><button class="sm" id="rg-mod">Modify</button><button class="danger sm" id="rg-del">Delete</button>
+          <span class="dim" id="rg-st"></span>
+        </div>
+      </div>
+      <div class="panel"><h2>LDAP <span class="act"><button class="sm" id="ldap-refresh">Refresh</button></span></h2><div id="ldap-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <select id="ldap-en"><option value="1">Enable</option><option value="0">Disable</option></select>
+          <input id="ldap-ip" placeholder="server" style="width:150px"><input id="ldap-port" placeholder="port" style="width:70px">
+          <input id="ldap-dn" placeholder="bind DN" style="width:200px"><input id="ldap-pw" placeholder="bind pw" type="password" style="width:120px">
+          <input id="ldap-sb" placeholder="search base" style="width:180px">
+        </div>
+        <div class="pwrrow" style="margin-top:8px"><button class="primary sm" id="ldap-save">Save LDAP</button><span class="dim" id="ldap-st"></span></div>
+      </div>
+      <div class="panel"><h2>AD certificate <span class="act"><button class="sm" id="adcert-refresh">Query</button></span></h2>
+        <div id="adcert-table"><p class="dim">Not queried.</p></div>
+        <div class="pwrrow" style="margin-top:10px"><input id="adcert-pem" placeholder="PEM text" style="width:320px"><button class="sm" id="adcert-save">Upload</button><span class="dim" id="adcert-st"></span></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-serial">
+      <div class="panel"><h2>Serial over LAN <span class="act"><button class="sm" id="sol-refresh">Refresh</button></span></h2><div id="sol-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <select id="sol-en"><option value="1">SOL enabled</option><option value="0">SOL disabled</option></select>
+          <select id="sol-baud"><option value="9">115200</option><option value="8">57600</option><option value="7">38400</option><option value="6">19200</option><option value="5">9600</option></select>
+          <button class="primary sm" id="sol-save">Save</button><span class="dim" id="sol-st"></span>
+        </div>
+      </div>
+      <div class="panel"><h2>Serial port / messaging <span class="act"><button class="sm" id="ser-refresh">Refresh</button></span></h2><div id="ser-table">—</div></div>
+      <div class="panel"><h2>Serial messaging cfg <span class="act"><button class="sm" id="serm-refresh">Refresh</button></span></h2><div id="serm-table">—</div></div>
+    </section>
+
+    <section class="view" id="v-sess">
+      <div class="panel"><h2>Web session timeout <span class="act"><button class="sm" id="sto-refresh">Refresh</button></span></h2><div id="sto-table">—</div>
+        <div class="pwrrow" style="margin-top:10px"><input id="sto-secs" placeholder="seconds" style="width:110px"><button class="primary sm" id="sto-save">Set</button><span class="dim" id="sto-st"></span></div>
+      </div>
+      <div class="panel"><h2>KVM mouse mode <span class="act"><button class="sm" id="mm-refresh">Refresh</button></span></h2><div id="mm-table">—</div>
+        <div class="pwrrow" style="margin-top:10px">
+          <select id="mm-mode"><option value="0">Absolute (Windows/Linux)</option><option value="1">Relative</option><option value="2">Other</option></select>
+          <select id="mm-hv"><option value="0">normal</option><option value="1">Hyper-V</option></select>
+          <button class="primary sm" id="mm-save">Set mode</button><span class="dim" id="mm-st"></span>
+        </div>
+      </div>
+      <div class="panel"><h2>IPMI session</h2><div id="ipmis-table"><button class="sm" id="ipmis-go">Query ipmisess</button></div></div>
+    </section>
+
+    <section class="view" id="v-sys">
+      <div class="panel"><h2>System information</h2><div id="sys-table">—</div></div>
+      <div class="panel"><h2>External BMC / channel config</h2><div id="ext-table"><button class="sm" id="ext-go">Query getextbmccfg</button></div></div>
+    </section>
+
+    <section class="view" id="v-maint">
+      <div class="panel"><h2>Card maintenance</h2>
+        <div class="pwrrow">
+          <button class="danger sm" id="m-reboot">Reboot BMC</button>
+          <button class="sm" id="m-webre">Restart webserver</button>
+          <button class="danger sm" id="m-factory">Factory defaults</button>
+          <button class="sm" id="m-postflash">Post-flash reset</button>
+          <button class="sm" id="m-spfiles">Use new SP files</button>
+        </div>
+        <p class="note" id="maint-st">Rebooting the BMC drops this session — wait ~90 s and reload.</p>
+      </div>
+      <div class="panel"><h2>Screenshot (Capture)</h2>
+        <div class="pwrrow"><button class="primary sm" id="cap-go">Capture screen</button><span class="dim" id="cap-st"></span></div>
+        <div id="cap-box" style="margin-top:12px"></div>
+      </div>
+      <div class="panel"><h2>Security certificates</h2><div id="cert-table"><button class="sm" id="cert-go">Validate SSL cert</button></div>
+        <p class="note">SSL cert upload uses the stock uploader (binary-safe): <a href="#" onclick="location.href='http://'+location.hostname+':8080/page/upload_ssl_certificate.html';return false" style="color:var(--accent)">open on :8080</a></p>
+      </div>
+    </section>
+
+    <section class="view" id="v-rpc">
+      <div class="panel"><h2>Raw RPC console</h2>
+        <p class="dim" style="margin-bottom:10px">Every legacy /rpc/*.asp endpoint, proxied with your session. GET: append ?params. POST: body box = form fields.</p>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <select id="rpc-pick" style="max-width:280px"></select>
+          <select id="rpc-m"><option value="GET">GET</option><option value="POST">POST</option></select>
+        </div>
+        <div class="pwrrow" style="margin-bottom:10px">
+          <input id="rpc-path" placeholder="/rpc/xxx.asp?A=1" style="width:340px" class="mono">
+          <input id="rpc-body" placeholder="POST body A=1&B=2" style="width:300px" class="mono">
+          <button class="primary sm" id="rpc-go">Send</button>
+        </div>
+        <pre class="mono" id="rpc-out" style="max-height:420px;overflow:auto;background:#0d141b;padding:12px;border-radius:6px;border:1px solid var(--border)"></pre>
+      </div>
+    </section>
+
+    <section class="view" id="v-fw">
+      <div class="panel">
+        <h2>Firmware update</h2>
+        <p class="dim">Drives the original on-card flasher 1:1 (setTimeEEPROM → prepflash → upload → verifyimage → startflash?PRESERVECFG=1). Progress below; the card reboots itself ~10 s after the write.</p>
+        <div class="pwrrow" style="margin-top:14px">
+          <input type="file" id="fwfile" accept=".ima,.bin">
+          <button class="danger" id="fwgo">Flash firmware</button>
+        </div>
+        <p class="note" id="fwstat">no file</p>
+        <pre class="mono" id="fwlog" style="margin-top:12px;max-height:280px;overflow:auto"></pre>
+      </div>
+      <div class="panel">
+        <h2>Recovery</h2>
+        <p class="note">Stock update UI also still exists on the legacy port — <a href="#" onclick="location.href='http://'+location.hostname+':8080/page/UI_firmware_update.html';return false" style="color:var(--accent)">open on :8080</a>. If a flash bricks the card: SPI programmer or Linux live USB + flashrom.</p>
+      </div>
+    </section>
+
+
+  </div>
+</main>
+</div>
+
+@@SOC_DECODER@@
+@@IKVM@@
+@@APP@@
+</body>
+</html>
