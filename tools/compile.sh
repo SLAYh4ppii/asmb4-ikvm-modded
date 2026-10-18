@@ -29,7 +29,9 @@ arm-linux-gnueabi-gcc -Os -static -nostdlib -fno-builtin -fno-stack-protector \
 chmod 755 root/usr/local/bin/bmcweb root/usr/local/bin/kvmproxy \
           root/usr/local/bin/webgo8080.sh root/usr/local/lib/bindhook.so \
           root/etc/init.d/bmcweb root/etc/init.d/kvmproxy
-ln -sf ../init.d/kvmproxy root/etc/rc3.d/S95kvmproxy
+for r in rc2 rc3 rc4 rc5; do
+    ln -sf ../init.d/kvmproxy root/etc/$r.d/S95kvmproxy
+done
 
 # repack partitions
 mkfs.cramfs root /w/work/root_new.cramfs
